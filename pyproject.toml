@@ -1,0 +1,24 @@
+[project]
+name = "alloy-agent"
+version = "0.1.0"
+description = "Muse Spark agent that searches steel compositions for target properties with calibrated uncertainty."
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "openai>=1.40",
+    "pydantic>=2",
+    "numpy",
+    "scikit-learn",
+    "gradio>=4",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
