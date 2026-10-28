@@ -31,13 +31,16 @@ class OpenPredictor:
         self._lo, self._span = lo, np.where(hi > lo, hi - lo, 1.0)
 
         rng = np.random.default_rng(seed)
-        self.target_ranges, self.k, self.coverage, self.mae, self._models = {}, {}, {}, {}, {}
+        self.target_ranges, self.calib, self.coverage, self.mae, self._models = {}, {}, {}, {}, {}
+        self.width, self.width_scalar_k = {}, {}
         for t, col in TARGETS.items():
             keep = [r[col] is not None for r in rows]
             X, y = X_all[keep], np.array([r[col] for r in rows if r[col] is not None], dtype=float)
             self.target_ranges[t] = (float(y.min()), float(y.max()))
             make = _pick_model(X, y, seed)
-            self.k[t], self.coverage[t], self.mae[t] = _calibrate(X, y, make, rng, seed)
+            c = _calibrate(X, y, make, rng, seed)
+            self.calib[t], self.coverage[t], self.mae[t] = (c["a"], c["b"]), c["coverage"], c["mae"]
+            self.width[t], self.width_scalar_k[t] = c["width"], c["width_scalar_k"]
             self._models[t] = _ensemble(X, y, make, n_models, rng)
 
         # Domain check: mean distance to the 5 nearest training rows, in range-scaled space.
@@ -65,7 +68,8 @@ class OpenPredictor:
         per_target = {}
         for t, models in self._models.items():
             preds = np.stack([m.predict(X) for m in models])
-            per_target[t] = (preds.mean(0), np.maximum(self.k[t] * preds.std(0), 1e-6))
+            a, b = self.calib[t]
+            per_target[t] = (preds.mean(0), np.maximum(a + b * preds.std(0), 1e-6))
         knn = self._nn.kneighbors(self._scale(X), n_neighbors=5)[0].mean(1)
 
         out = []
@@ -102,11 +106,23 @@ def _ensemble(X, y, make, n, rng):
     return models
 
 
-def _calibrate(X, y, make, rng, seed, n_small=5):
-    """Smallest k with mu ± 2k·sigma_raw covering 95% of out-of-fold rows; returns (k, coverage, MAE)."""
+def _calibrate(X, y, make, rng, seed, n_small=5, cover=0.95):
+    """sigma = a + b·sigma_raw: the narrowest mean interval with mu ± 2 sigma covering 95% of out-of-fold rows.
+
+    For each b on a grid, a is the smallest offset reaching the coverage. b = k_scalar (a = 0) is on the grid,
+    so the result is never wider than plain scalar-k calibration.
+    """
     err, sraw = np.empty_like(y), np.empty_like(y)
     for tr, te in KFold(5, shuffle=True, random_state=seed).split(X):
         preds = np.stack([m.predict(X[te]) for m in _ensemble(X[tr], y[tr], make, n_small, rng)])
         err[te], sraw[te] = np.abs(y[te] - preds.mean(0)), np.maximum(preds.std(0), 1e-6)
-    k = float(np.quantile(err / (2 * sraw), 0.95))
-    return k, float(np.mean(err <= 2 * k * sraw)), float(err.mean())
+    k = float(np.quantile(err / (2 * sraw), cover))
+    best = None
+    for b in np.linspace(0, k, 41):
+        a = max(float(np.quantile(err / 2 - b * sraw, cover)), 0.0)
+        width = float(np.mean(2 * (a + b * sraw)))
+        if best is None or width < best[2]:
+            best = (a, float(b), width)
+    a, b, width = best
+    return {"a": a, "b": b, "coverage": float(np.mean(err <= 2 * (a + b * sraw))), "mae": float(err.mean()),
+            "width": width, "width_scalar_k": float(np.mean(2 * k * sraw))}

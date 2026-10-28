@@ -26,6 +26,13 @@ def test_calibrated_coverage():
     assert all(c >= 0.9 for c in P.coverage.values())
 
 
+def test_affine_calibration_no_wider_than_scalar_k():
+    for t in ("ys", "uts", "el"):
+        a, b = P.calib[t]
+        assert a >= 0 and b >= 0
+        assert P.width[t] <= P.width_scalar_k[t]  # mean OOF ±2σ width
+
+
 def test_ood_flag():
     assert P.predict([{"ni": 50}])[0].ood
     assert not P.predict([P.medians])[0].ood
