@@ -412,6 +412,7 @@ def test_multiturn_keeps_front():
 
   - Expected: trace에 search가 있고, 표가 비어 있지 않고, issues가 비어 있거나 strip이 적용되어 있다.
   - Meta 백엔드도 `LLM_BASE_URL=https://api.meta.ai/v1 LLM_MODEL=muse-spark-1.3`으로 한 번 돌려 본다.
+  - (선택) Modal Endpoints: Muse Spark Open이 있고 툴 호출이 되는지 확인한다. 되면 세 번째 백엔드로 등록한다. 인증은 Proxy Token(`MODAL_PROXY_TOKEN_ID.MODAL_PROXY_TOKEN_SECRET`)을 Bearer로 보낸다. 안 되면 버린다.
 
 - [ ] **Step 6: 커밋**
 
@@ -609,6 +610,9 @@ git commit -m "feat: held-out rediscovery benchmark (no LLM)"
     - 한계: 데이터 312건, 마레이징 위주, 실측 검증 없음
     - "Built during the hackathon" 섹션: 날짜별 커밋 범위와 "no pre-existing code"
     - 개발 중 OpenCode + Muse Spark Open을 보조로 썼다면 그 사실
+- [ ] **Step 1b (선택): Modal에 데모 호스팅**
+  - `modal deploy`로 Gradio 앱을 올리고, 공개 URL을 README와 제출 페이지에 넣는다.
+  - 키는 Modal Secret으로 넘긴다.
 - [ ] **Step 2: 확인**
   - `git ls-files`에 `.env`, `data/`, `runs.jsonl`이 없어야 한다.
 - [ ] **Step 3: 커밋**
