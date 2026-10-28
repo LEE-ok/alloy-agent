@@ -80,6 +80,7 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
     if not session.messages:
         session.messages.append({"role": "system", "content": SYSTEM_PROMPT})
     prefix = _front_context(session.last_front) if session.last_front else ""
+    prior = [{"front": session.last_front, "candidates": session.candidates}]  # earlier turns' tool numbers
     session.messages.append({"role": "user", "content": prefix + user_text})
 
     trace, outputs, table = [], [], []
@@ -121,7 +122,7 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
                     if tc["name"] == "search" and "error" not in result:
                         table = session.candidates = result["candidates"]
                         refines += bool(result["binding"])
-                    elif tc["name"] == "pareto" and "error" not in result:
+                    elif tc["name"] == "pareto" and result.get("front"):  # an empty front must not wipe the table
                         table = session.last_front = result["front"]
                     try:
                         args = json.loads(tc["arguments"])
@@ -133,7 +134,8 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
                 session.messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result)})
 
         given = [SYSTEM_PROMPT, json.dumps(TOOL_SPECS), user_text]  # numbers we told the model are not fabrications
-        issues = verify(text, outputs, given)
+        known = outputs + prior
+        issues = verify(text, known, given)
         if issues:
             trace.append({"step": len(trace) + 1, "tool": None, "args": None, "summary": "; ".join(issues),
                           "status": "verifier rejected"})
@@ -141,7 +143,7 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
                     f"Verifier: {'; '.join(issues)}. Rewrite using only numbers returned by tools."}]
             first, first_issues = text, issues
             text = ask(retry, [])["content"] or ""
-            issues = verify(text, outputs, given)
+            issues = verify(text, known, given)
             if not text.strip():  # reasoning models sometimes return nothing; keep the first answer, stripped
                 text, issues = strip_unsupported(first, first_issues), first_issues
             elif issues:

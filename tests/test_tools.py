@@ -27,6 +27,11 @@ def test_pareto_non_dominated():
     assert all("rank" in c for c in f)
 
 
+def test_pareto_empty_explains():
+    r = pareto(P, [Objective(target="ys"), Objective(target="el")], [Constraint(target="ys", min=3000)])
+    assert r["front"] == [] and "no candidate" in r["note"]
+
+
 def test_constraint_validation():
     with pytest.raises(ValidationError):
         Constraint(target="ys", min=2000, max=1000)

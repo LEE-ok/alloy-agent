@@ -48,6 +48,22 @@ def test_empty_retry_keeps_stripped_original():
     assert r.text == "Yield [?] MPa."
 
 
+def test_empty_front_keeps_previous_table():
+    impossible = {"objectives": [{"target": "ys"}, {"target": "el"}], "constraints": [{"target": "ys", "min": 3000}]}
+    r = run_turn(Session(), "x", scripted(call("search", {"constraints": [{"target": "ys", "min": 1200}]}),
+                                          call("pareto", impossible), say("Done.")), P, None)
+    assert r.table and r.table[0]["score"] >= 0
+
+
+def test_followup_may_quote_previous_front():
+    s = Session()
+    run_turn(s, "trade-off", scripted(call("pareto", {"objectives": [{"target": "ys"}, {"target": "el"}]}),
+                                      say("Front ready.")), P, None)
+    ys = s.last_front[0]["pred"]["ys"]["mu"]
+    r = run_turn(s, "more elongation", scripted(say(f"Earlier option #1 had {ys} MPa.")), P, None)
+    assert r.issues == []
+
+
 def test_llm_error_ends_turn_gracefully():
     def boom(m, t):
         raise TimeoutError("timeout")

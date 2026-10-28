@@ -123,6 +123,9 @@ def pareto(pred: OpenPredictor, objectives: list[Objective], constraints: list[C
     if constraints:
         scores = {i: min(_margins(preds[i], constraints, pred)) for i in rows}
         rows = [i for i in rows if scores[i] >= 0]
+        if not rows:
+            return {"front": [], "note": "no candidate meets the constraints conservatively; "
+                                         "call pareto without constraints to see the trade-off"}
 
     def norm(t, v):
         lo, hi = pred.target_ranges[t]
