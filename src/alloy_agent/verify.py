@@ -16,6 +16,9 @@ def _walk(x, out: list[float]):
     if isinstance(x, (int, float)):
         out.append(float(x))
     elif isinstance(x, dict):
+        if isinstance(x.get("mu"), (int, float)) and isinstance(x.get("sigma"), (int, float)):
+            mu, s = x["mu"], x["sigma"]
+            out += [mu - 2 * s, mu + 2 * s, 2 * s]  # derived 95% bounds, recomputed here rather than trusted
         for v in x.values():
             _walk(v, out)
     elif isinstance(x, (list, tuple)):
@@ -23,8 +26,11 @@ def _walk(x, out: list[float]):
             _walk(v, out)
 
 
-def _supported(x: float, known: list[float]) -> bool:
-    return x in ALLOWED or any(abs(x - v) <= TOL * max(abs(v), 1) for v in known)
+def _supported(s: str, known: list[float]) -> bool:
+    """Within 1%, or equal to a known value rounded to the precision the number was written with."""
+    x = float(s.replace(",", ""))
+    digits = len(s.split(".")[1]) if "." in s else 0
+    return x in ALLOWED or any(abs(x - v) <= TOL * max(abs(v), 1) or round(v, digits) == x for v in known)
 
 
 def verify(text: str, tool_outputs: list[dict], user_texts: list[str]) -> list[str]:
@@ -32,7 +38,7 @@ def verify(text: str, tool_outputs: list[dict], user_texts: list[str]) -> list[s
     _walk(tool_outputs, known)
     for t in user_texts:
         known += numbers(t)
-    return [f"unsupported number: {x}" for x in numbers(text) if not _supported(x, known)]
+    return [f"unsupported number: {float(s.replace(',', ''))}" for s in NUM.findall(text) if not _supported(s, known)]
 
 
 def strip_unsupported(text: str, issues: list[str]) -> str:
