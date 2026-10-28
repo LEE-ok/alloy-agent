@@ -24,6 +24,7 @@ class OpenPredictor:
     def __init__(self, rows: list[dict] | None = None, n_models: int = 20, seed: int = 0):
         rows = data.load() if rows is None else rows
         X_all = np.array([[r[e] for e in ELEMENTS] for r in rows], dtype=float)
+        self.train_X = X_all  # columns follow ELEMENTS; used by tools.candidate_pool
         lo, hi = X_all.min(0), X_all.max(0)
         self.element_ranges = {e: (float(a), float(b)) for e, a, b in zip(ELEMENTS, lo, hi)}
         self.medians = {e: float(m) for e, m in zip(ELEMENTS, np.median(X_all, 0))}
