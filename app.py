@@ -11,15 +11,11 @@ from dotenv import load_dotenv
 
 from alloy_agent.agent import Session, TurnResult, render_table, run_turn
 from alloy_agent.intake import constraints_to_prompt, extract_constraints
-from alloy_agent.llm import make_chat
+from alloy_agent.llm import BACKENDS, make_chat
 from alloy_agent.predictor import OpenPredictor
 
 load_dotenv()
 PRED = OpenPredictor()
-BACKENDS = {
-    "Muse Spark Open (Baseten)": ("https://inference.baseten.co/v1", "meta-models/muse-spark-open-1026"),
-    "Muse Spark 1.3 (Meta)": ("https://api.meta.ai/v1", "muse-spark-1.3"),
-}
 REPLAY = os.environ.get("REPLAY")
 _replay = iter(json.loads(l) for l in open(REPLAY, encoding="utf-8")) if REPLAY else None
 

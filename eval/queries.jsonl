@@ -1,0 +1,20 @@
+{"id": "f01", "query": "I need a steel with yield strength of at least 1200 MPa.", "followup": null, "expect": "feasible"}
+{"id": "f02", "query": "Find compositions with yield strength above 1500 MPa.", "followup": null, "expect": "feasible"}
+{"id": "f03", "query": "Yield strength 1700 MPa minimum, please.", "followup": null, "expect": "feasible"}
+{"id": "f04", "query": "Suggest a steel with ultimate tensile strength of at least 2000 MPa.", "followup": null, "expect": "feasible"}
+{"id": "f05", "query": "Yield strength at least 1200 MPa and elongation at least 8%.", "followup": null, "expect": "feasible"}
+{"id": "f06", "query": "Tensile strength 1600 MPa or more with at least 6% elongation.", "followup": null, "expect": "feasible"}
+{"id": "f07", "query": "I care about ductility: elongation of 10% or more.", "followup": null, "expect": "feasible"}
+{"id": "f08", "query": "Yield strength at least 1500 MPa, but keep cobalt below 0.5 wt% because it is expensive.", "followup": null, "expect": "feasible"}
+{"id": "i01", "query": "Find a steel with yield strength of at least 2600 MPa.", "followup": null, "expect": "infeasible"}
+{"id": "i02", "query": "I want 30% elongation and at least 1500 MPa yield strength.", "followup": null, "expect": "infeasible"}
+{"id": "i03", "query": "Tensile strength at least 2500 MPa with 10% elongation.", "followup": null, "expect": "infeasible"}
+{"id": "i04", "query": "Yield strength of at least 261 ksi and elongation of at least 10%.", "followup": null, "expect": "infeasible"}
+{"id": "t01", "query": "Show me the trade-off between yield strength and elongation.", "followup": null, "expect": "tradeoff"}
+{"id": "t02", "query": "How does tensile strength trade off against ductility in these steels?", "followup": null, "expect": "tradeoff"}
+{"id": "t03", "query": "Give me the best compromise options between high yield strength and high elongation, and tell me which to test first.", "followup": null, "expect": "tradeoff"}
+{"id": "t04", "query": "Which candidates are most worth testing next if I want both strength and elongation? Explain the uncertainty.", "followup": null, "expect": "tradeoff"}
+{"id": "o01", "query": "What properties would a steel with 25 wt% Ni, 5 wt% Co and 3 wt% Mo have?", "followup": null, "expect": "ood"}
+{"id": "o02", "query": "Predict yield strength for 1.5 wt% C, 12 wt% Cr steel.", "followup": null, "expect": "ood"}
+{"id": "u01", "query": "Find steels with yield strength at least 1500 MPa.", "followup": "Now keep nickel below 8 wt%.", "expect": "feasible"}
+{"id": "u02", "query": "Yield strength at least 1200 MPa and elongation at least 8%.", "followup": "Can you push the yield strength higher while keeping that elongation?", "expect": "tradeoff"}

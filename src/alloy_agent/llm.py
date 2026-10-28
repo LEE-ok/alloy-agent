@@ -10,6 +10,10 @@ Chat = Callable[[list[dict], list[dict]], dict]
 DEFAULT_BASE_URL = "https://inference.baseten.co/v1"
 DEFAULT_MODEL = "meta-models/muse-spark-open-1026"
 MAX_TOKENS = 4000  # reasoning tokens count against this
+BACKENDS = {  # label -> (base_url, model); shared by the app and the eval
+    "Muse Spark Open (Baseten)": (DEFAULT_BASE_URL, DEFAULT_MODEL),
+    "Muse Spark 1.3 (Meta)": ("https://api.meta.ai/v1", "muse-spark-1.3"),
+}
 
 
 def _key(base_url: str) -> str:
