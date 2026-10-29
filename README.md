@@ -22,7 +22,7 @@ tools    predict(composition)                      → μ, σ for YS / UTS / El 
                                                       if none feasible: which constraint binds, short by how much
          pareto(objectives, constraints?)          → non-dominated trade-off front; rank = promise ÷ uncertainty
                                                       ("which alloy to melt next")
-verify   numbers in prose ⊆ tool outputs ∪ user's numbers (derived μ±2σ recomputed in code);
+verify   numbers in prose ⊆ tool outputs ∪ user's numbers, matched at their written precision (μ±2σ recomputed in code);
          reject → one rewrite → otherwise strip the unsupported numbers. The table is filled by code, not the LLM.
 ```
 
@@ -52,10 +52,11 @@ Affine calibration gives bands 35–45% narrower than a single scalar multiplier
 | | Muse Spark Open (Baseten) | Muse Spark 1.3 (Meta Model API) |
 |---|---|---|
 | Task success | **20 / 20** | **20 / 20** |
-| Clean answer (verifier stripped nothing) | 19 / 20 | 20 / 20 |
-| Mean tool calls | 1.4 | 1.25 |
-| Mean latency | **11.4 s** | 15.1 s |
-| Tokens, all 20 queries | 202k | 204k |
+| Clean answer (verifier stripped nothing) | 16 / 20 | **20 / 20** |
+| Mean tool calls | 1.3 | 1.3 |
+| Mean latency | **13.8 s** | 16.4 s |
+| Tokens, all 20 queries | 234k | 207k |
+| Turns that hit a cap | 0 | 0 |
 
 ![eval comparison](eval/compare.png)
 
@@ -64,10 +65,17 @@ Affine calibration gives bands 35–45% narrower than a single scalar multiplier
 - The expected outcome of each query was labeled by running the tools directly. So this measures whether the
   agent uses the tools correctly and answers honestly, not whether the alloys exist.
 
-**A first run scored 13/20 and 15/20.** Reading the failures led to three verifier fixes, each with a test:
-- numbers from earlier user turns are now allowed;
-- "1693,225" is checked as a list, not one number;
-- the prompt now says to quote tool numbers instead of approximating them.
+**How we got here.** Each fix below came from reading eval failures, and each has a test:
+- **First run:** 13/20 and 15/20 strict. The verifier was too strict on follow-ups and comma lists, and the
+  prompt allowed approximations.
+- **Code review:** our own 1% tolerance let invented numbers slip through once a 15-candidate front was in
+  context. A number now has to match a tool value to the precision it is written with.
+- **Third run:** on two queries the Meta model returned an empty final answer. The agent now asks again, and
+  if the answer is still empty it falls back to a summary of the tool results.
+
+The open-weight model is faster. It also approximates more often (for example "~2,000 MPa"), so its answer is
+"clean" (the verifier stripped nothing) on 16/20 queries. In the other 4, the verifier replaced those numbers
+with `[?]` rather than let them through.
 
 **Held-out rediscovery (`eval/rediscovery.py`, no LLM): 0 / 31.** We hid the strongest 10% of steels and
 retrained. Every held-out target then lies above the model's training range, and tree ensembles do not
@@ -95,7 +103,7 @@ python app.py                              # http://127.0.0.1:7860
   `meta-models/muse-spark-open-1026` on Baseten; the alternative is `muse-spark-1.3` on `https://api.meta.ai/v1`.
 - **Spec-sheet intake:** uses the Meta Model API. Try `demo/spec_landing_gear.pdf` or `demo/spec_table.png`.
 - **Replay mode:** `REPLAY=runs.jsonl python app.py` re-renders saved turns without calling any LLM.
-- **Tests:** `pytest`. 40 offline tests; the LLM is stubbed.
+- **Tests:** `pytest`. 47 offline tests; the LLM is stubbed.
 - **Eval:** `python eval/run_eval.py --backend baseten|meta`, then `python eval/run_eval.py --plot`.
 
 ## Data
@@ -110,7 +118,7 @@ commit is `c4962d6` (2026-10-27 KST). No pre-existing code, models or data are i
 |---|---|
 | Oct 27 | Dataset license check and choice, project skeleton, Muse Spark tool-calling checks on both backends, design spec and plan |
 | Oct 28 | Predictor, tools, verifier, agent loop, multimodal intake, Gradio UI, eval harness, rediscovery benchmark |
-| Oct 29 | Full evaluation, verifier fixes driven by eval failures |
+| Oct 29–30 | Full evaluation, fresh-eyes code review, fixes driven by eval failures and review findings |
 
 Design notes: [docs/superpowers/specs](docs/superpowers/specs) and [docs/superpowers/plans](docs/superpowers/plans).
 
