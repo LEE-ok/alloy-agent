@@ -95,6 +95,18 @@ def test_session_cap_stops_without_calling_llm():
     assert r.capped and "budget" in r.text.lower() and "LLM error" not in r.text
 
 
+def test_empty_final_answer_is_asked_again():
+    r = run_turn(Session(), "x", scripted(call("search", {"constraints": [{"target": "ys", "min": 3000}]}),
+                                          say(""), say("Yield strength is the binding constraint.")), P, None)
+    assert r.text == "Yield strength is the binding constraint."
+
+
+def test_still_empty_answer_falls_back_to_tool_summary():
+    r = run_turn(Session(), "x", scripted(call("search", {"constraints": [{"target": "ys", "min": 3000}]}),
+                                          say(""), say("")), P, None)
+    assert "binding ys" in r.text
+
+
 def test_llm_error_ends_turn_gracefully():
     def boom(m, t):
         raise TimeoutError("timeout")

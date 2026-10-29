@@ -139,6 +139,11 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
                                   "status": "error" if "error" in result else "ok"})
                 session.messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result)})
 
+        if not text.strip():  # reasoning models sometimes end with no text: ask once, then fall back to code
+            text = ask(session.messages + [{"role": "user", "content": "Write your final answer for the user now."}],
+                       [])["content"] or ""
+        if not text.strip():
+            text = "No written answer was produced. Tool results: " + "; ".join(t["summary"] for t in trace if t["tool"])
         # numbers the model was given (prompt, tool specs, every user message so far) are not fabrications
         given = [SYSTEM_PROMPT, json.dumps(TOOL_SPECS)] + [m["content"] for m in session.messages if m["role"] == "user"]
         known = outputs + prior
