@@ -1,6 +1,6 @@
 import json
 
-from alloy_agent.agent import MAX_TOOL_CALLS, Session, render_table, run_turn
+from alloy_agent.agent import MAX_TOOL_CALLS, SESSION_TOKEN_CAP, Session, render_table, run_turn
 from alloy_agent.predictor import OpenPredictor
 
 P = OpenPredictor()
@@ -69,6 +69,30 @@ def test_followup_may_quote_earlier_user_numbers():
     run_turn(s, "Yield strength at least 1500 MPa", scripted(say("OK.")), P, None)
     r = run_turn(s, "keep nickel low", scripted(say("Still targeting 1500 MPa.")), P, None)
     assert r.issues == []
+
+
+def test_repeated_blocked_searches_still_hit_the_cap():
+    n = 0
+
+    def stubborn(m, t):
+        nonlocal n
+        n += 1
+        if n > 20:
+            raise AssertionError("agent loop is not bounded")
+        return {**call("search", {"constraints": [{"target": "ys", "min": 3000}]}), "usage": {}}  # no usage reported
+
+    r = run_turn(Session(), "x", stubborn, P, None)
+    assert r.capped and n <= MAX_TOOL_CALLS + 2
+
+
+def test_session_cap_stops_without_calling_llm():
+    s = Session(tokens_used=SESSION_TOKEN_CAP)
+
+    def must_not_call(m, t):
+        raise AssertionError("LLM called after the session budget was spent")
+
+    r = run_turn(s, "x", must_not_call, P, None)
+    assert r.capped and "budget" in r.text.lower() and "LLM error" not in r.text
 
 
 def test_llm_error_ends_turn_gracefully():

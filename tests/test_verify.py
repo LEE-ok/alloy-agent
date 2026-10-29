@@ -31,6 +31,17 @@ def test_comma_list_not_merged_into_one_number():
     assert verify("YS, 2σ: 1693,225", out, []) == []
 
 
+def test_fabricated_caught_among_many_values():
+    # 30 candidates spaced 20 MPa apart: a 1% window would cover nearly every value in between
+    out = [{"candidates": [{"pred": {"ys": {"mu": 1500.0 + 20 * i, "sigma": 50.0}}} for i in range(30)]}]
+    assert verify("Candidate 3 reaches 2050 MPa.", out, []) == ["unsupported number: 2050.0"]
+
+
+def test_numbers_inside_ood_reason_strings_are_supported():
+    out = [{"ood": True, "ood_reasons": ["ni=25 outside [0.01, 18.9]"]}]
+    assert verify("Ni 25 is outside the training range up to 18.9.", out, []) == []
+
+
 def test_strip():
     t = "Yield reaches 1850 MPa."
     assert strip_unsupported(t, verify(t, OUT, [])) == "Yield reaches [?] MPa."

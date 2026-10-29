@@ -79,6 +79,9 @@ def _front_context(front: list[dict]) -> str:
 def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
              log_path: str | None = "runs.jsonl") -> TurnResult:
     t0, start = time.time(), len(session.messages)
+    if session.tokens_used >= SESSION_TOKEN_CAP:  # stop spending: no LLM call at all once the session budget is gone
+        return TurnResult("Session token budget reached. Start a new session to continue.", [],
+                          [{"step": 1, "tool": None, "args": None, "summary": "", "status": "cap reached"}], [], True)
     if not session.messages:
         session.messages.append({"role": "system", "content": SYSTEM_PROMPT})
     prefix = _front_context(session.last_front) if session.last_front else ""
@@ -116,6 +119,7 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
                 if calls >= MAX_TOOL_CALLS:  # every tool_call id still needs a reply
                     result = {"error": "tool budget reached; answer with what you have"}
                 elif tc["name"] == "search" and refines >= MAX_REFINE:
+                    calls += 1  # blocked calls still count, or a model that keeps retrying would loop forever
                     result = {"error": "refine limit reached; answer with what you have"}
                 else:
                     calls += 1

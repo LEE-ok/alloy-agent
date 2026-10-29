@@ -17,10 +17,11 @@ BACKENDS = {  # label -> (base_url, model); shared by the app and the eval
 
 
 def _key(base_url: str) -> str:
-    key = os.environ.get("LLM_API_KEY") or os.environ.get(
-        "BASETEN_API_KEY" if "baseten" in base_url else "MODEL_API_KEY")
+    """The provider's own key first, so switching backends never sends one provider's key to another."""
+    own = "BASETEN_API_KEY" if "baseten.co" in base_url else "MODEL_API_KEY" if "api.meta.ai" in base_url else None
+    key = (own and os.environ.get(own)) or os.environ.get("LLM_API_KEY")
     if not key:
-        raise RuntimeError("no API key in env (LLM_API_KEY, BASETEN_API_KEY or MODEL_API_KEY)")
+        raise RuntimeError(f"no API key in env ({own or 'LLM_API_KEY'})")
     return key
 
 

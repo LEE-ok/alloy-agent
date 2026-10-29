@@ -3,7 +3,6 @@ import re
 
 NUM = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")  # no leading '-': hyphens in "mu-2σ" or "18Ni-9Co" are not signs
 ALLOWED = {0, 1, 2, 3, 4, 5, 95}  # ordinals, "2σ", "95%"
-TOL = 0.01
 
 
 def numbers(text: str) -> list[float]:
@@ -13,7 +12,9 @@ def numbers(text: str) -> list[float]:
 def _walk(x, out: list[float]):
     if isinstance(x, bool):
         return
-    if isinstance(x, (int, float)):
+    if isinstance(x, str):  # e.g. ood_reasons "ni=25 outside [0.01, 18.9]"
+        out += numbers(x)
+    elif isinstance(x, (int, float)):
         out.append(float(x))
     elif isinstance(x, dict):
         if isinstance(x.get("mu"), (int, float)) and isinstance(x.get("sigma"), (int, float)):
@@ -27,10 +28,15 @@ def _walk(x, out: list[float]):
 
 
 def _supported(s: str, known: list[float]) -> bool:
-    """Within 1%, or equal to a known value rounded to the precision the number was written with."""
+    """A known value rounded to the precision the number was written with ("1523" for 1523.4, "1.5" for 1.473).
+
+    No relative tolerance: with a full Pareto front in context, a 1% window per value covers most of the
+    strength range and would let invented numbers through.
+    """
     x = float(s.replace(",", ""))
     digits = len(s.split(".")[1]) if "." in s else 0
-    if x in ALLOWED or any(abs(x - v) <= TOL * max(abs(v), 1) or round(v, digits) == x for v in known):
+    half_step = 0.5 * 10 ** -digits + 1e-9
+    if x in ALLOWED or any(abs(x - v) <= half_step for v in known):
         return True
     # "1693,225" may be a list, not one thousands-separated number: accept if every part is supported
     return "," in s and all(_supported(p, known) for p in s.split(","))
