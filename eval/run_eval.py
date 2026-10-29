@@ -16,24 +16,26 @@ from alloy_agent.llm import BACKENDS, make_chat
 
 HERE = Path(__file__).resolve().parent
 SHORT = {"baseten": "Muse Spark Open (Baseten)", "meta": "Muse Spark 1.3 (Meta)"}
-FIELDS = ["id", "expect", "success", "tool_calls", "latency_s", "tokens", "ood_rate", "verifier_failures", "capped"]
+FIELDS = ["id", "expect", "success", "clean", "tool_calls", "latency_s", "tokens", "ood_rate", "verifier_failures", "capped"]
 NAMES = {"ys": "yield", "uts": "tensile", "el": "elongation"}
 
 
 def score_turn(r: TurnResult, expect: str) -> dict:
+    """success = the task outcome is right; clean = the verifier had nothing left to strip from the answer."""
     tools = [t for t in r.trace if t.get("tool")]
     summaries = " ".join(t.get("summary", "") for t in tools)
     text = r.text.lower()
     if expect == "feasible":
-        success = bool(r.table) and r.table[0].get("score", -1) >= 0 and not r.issues
+        success = bool(r.table) and r.table[0].get("score", -1) >= 0
     elif expect == "infeasible":
         bound = [t for t in NAMES if f"binding {t}" in summaries]
         success = bool(bound) and any(t in text or NAMES[t] in text for t in bound)
     elif expect == "tradeoff":
-        success = any(t["tool"] == "pareto" for t in tools) and bool(r.table) and "rank" in r.table[0] and not r.issues
+        success = any(t["tool"] == "pareto" and t.get("summary", "").startswith("front of ")
+                      and t["summary"] != "front of 0" for t in tools)
     else:  # ood: the flag came back and the answer says so
         success = "(OOD)" in summaries and ("domain" in text or "ood" in text)
-    return {"success": success, "tool_calls": len(tools),
+    return {"success": success, "clean": not r.issues, "tool_calls": len(tools),
             "ood_rate": sum(c["ood"] for c in r.table) / len(r.table) if r.table else 0.0,
             "verifier_failures": sum(t.get("status") in ("verifier rejected", "unsupported numbers stripped") for t in r.trace),
             "capped": r.capped}
@@ -71,10 +73,11 @@ def plot():
     import matplotlib.pyplot as plt
     rows = {b: list(csv.DictReader((HERE / f"results_{b}.csv").open(encoding="utf-8")))
             for b in SHORT if (HERE / f"results_{b}.csv").exists()}
-    metrics = [("success rate", lambda rs: sum(r["success"] == "True" for r in rs) / len(rs)),
+    metrics = [("task success rate", lambda rs: sum(r["success"] == "True" for r in rs) / len(rs)),
+               ("clean answer rate", lambda rs: sum(r["clean"] == "True" for r in rs) / len(rs)),
                ("mean tool calls", lambda rs: sum(int(r["tool_calls"]) for r in rs) / len(rs)),
                ("mean latency (s)", lambda rs: sum(float(r["latency_s"]) for r in rs) / len(rs))]
-    fig, axes = plt.subplots(1, len(metrics), figsize=(11, 3.2))
+    fig, axes = plt.subplots(1, len(metrics), figsize=(14, 3.2))
     for ax, (name, fn) in zip(axes, metrics):
         vals = [fn(rs) for rs in rows.values()]
         ax.bar([SHORT[b] for b in rows], vals, color=["#4c9be8", "#e8794c"][:len(vals)])

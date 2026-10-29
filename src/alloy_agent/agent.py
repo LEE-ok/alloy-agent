@@ -34,6 +34,8 @@ Final answer rules:
 - The app shows the candidate table itself. Write a short explanation: which candidate you recommend and why,
   the trade-offs, the binding constraint if any, and which experiments to run next.
 - Never state a number that no tool returned. Do not invent compositions or properties.
+- Quote tool numbers as given. Do not round, approximate ("~20%"), or compute new numbers (differences,
+  percentages, gains); describe such comparisons in words instead. An automatic checker removes unsupported numbers.
 - Reply in the user's language."""
 
 
@@ -133,7 +135,8 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
                                   "status": "error" if "error" in result else "ok"})
                 session.messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result)})
 
-        given = [SYSTEM_PROMPT, json.dumps(TOOL_SPECS), user_text]  # numbers we told the model are not fabrications
+        # numbers the model was given (prompt, tool specs, every user message so far) are not fabrications
+        given = [SYSTEM_PROMPT, json.dumps(TOOL_SPECS)] + [m["content"] for m in session.messages if m["role"] == "user"]
         known = outputs + prior
         issues = verify(text, known, given)
         if issues:

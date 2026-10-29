@@ -26,6 +26,11 @@ def test_rounded_to_written_precision_ok():
     assert verify("About 1.7% Ti.", out, []) == ["unsupported number: 1.7"]
 
 
+def test_comma_list_not_merged_into_one_number():
+    out = [{"pred": {"ys": {"mu": 1693.0, "sigma": 112.5}}}]  # 2σ = 225
+    assert verify("YS, 2σ: 1693,225", out, []) == []
+
+
 def test_strip():
     t = "Yield reaches 1850 MPa."
     assert strip_unsupported(t, verify(t, OUT, [])) == "Yield reaches [?] MPa."

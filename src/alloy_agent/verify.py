@@ -30,7 +30,10 @@ def _supported(s: str, known: list[float]) -> bool:
     """Within 1%, or equal to a known value rounded to the precision the number was written with."""
     x = float(s.replace(",", ""))
     digits = len(s.split(".")[1]) if "." in s else 0
-    return x in ALLOWED or any(abs(x - v) <= TOL * max(abs(v), 1) or round(v, digits) == x for v in known)
+    if x in ALLOWED or any(abs(x - v) <= TOL * max(abs(v), 1) or round(v, digits) == x for v in known):
+        return True
+    # "1693,225" may be a list, not one thousands-separated number: accept if every part is supported
+    return "," in s and all(_supported(p, known) for p in s.split(","))
 
 
 def verify(text: str, tool_outputs: list[dict], user_texts: list[str]) -> list[str]:

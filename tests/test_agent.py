@@ -64,6 +64,13 @@ def test_followup_may_quote_previous_front():
     assert r.issues == []
 
 
+def test_followup_may_quote_earlier_user_numbers():
+    s = Session()
+    run_turn(s, "Yield strength at least 1500 MPa", scripted(say("OK.")), P, None)
+    r = run_turn(s, "keep nickel low", scripted(say("Still targeting 1500 MPa.")), P, None)
+    assert r.issues == []
+
+
 def test_llm_error_ends_turn_gracefully():
     def boom(m, t):
         raise TimeoutError("timeout")
