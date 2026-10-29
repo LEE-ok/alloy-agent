@@ -1,23 +1,118 @@
 # alloy-agent
 
-Describe the steel you want in plain language. A Muse Spark agent turns it into constraints,
-calls prediction/search tools, and returns ranked candidate compositions with calibrated ±2σ
-bands, predicted stress-strain curves, and reasons. Out-of-domain candidates are flagged, not hidden.
+Describe the steel you need, in plain language or as a spec-sheet PDF/photo. A Muse Spark agent turns it into
+constraints, searches compositions with an uncertainty-aware predictor, explores the strength–ductility
+trade-off, and answers with ranked candidates and calibrated ±2σ bands. **Every number in the answer comes
+from a tool**: a code verifier checks the prose and strips anything it cannot trace. Out-of-domain candidates
+are flagged, never hidden. When a goal is out of reach, the agent says which constraint binds and by how much,
+instead of inventing an alloy.
 
-## Built during the hackathon
+![alloy-agent UI: follow-up asking for more elongation](docs/screens/followup-more-elongation.jpg)
 
-Everything in this repository was written during the Meta Global AI Developer Hackathon
-(Oct 27 – Nov 4, 2026), starting from an empty repo. No pre-existing code or models are included.
-Data: see [DATA.md](DATA.md).
+## How it works
 
-## Setup
+```
+Gradio UI ─ chat + spec upload │ agent trace │ Pareto scatter │ candidate table (μ ± 2σ, OOD ⚠)
+   ▼
+intake   PDF/image ──► Muse Spark 1.3 (multimodal) ──► constraints JSON
+agent    Muse Spark (Open on Baseten, or 1.3 on Meta Model API) ⇄ 3 tools, hard caps:
+         ≤6 tool calls, ≤2 refine loops, token budgets per turn and session
+tools    predict(composition)                      → μ, σ for YS / UTS / El + out-of-domain flag
+         search(constraints, bounds?)              → ranked by conservative margin (μ−2σ ≥ target);
+                                                      if none feasible: which constraint binds, short by how much
+         pareto(objectives, constraints?)          → non-dominated trade-off front; rank = promise ÷ uncertainty
+                                                      ("which alloy to melt next")
+verify   numbers in prose ⊆ tool outputs ∪ user's numbers (derived μ±2σ recomputed in code);
+         reject → one rewrite → otherwise strip the unsupported numbers. The table is filled by code, not the LLM.
+```
+
+The LLM decides what to do. All numbers come from code: predictions, margins, the table, and the check.
+
+**Predictor** (`src/alloy_agent/predictor.py`, trained at start-up in ~20 s)
+- **Model:** per target, a 20-model bootstrap ensemble. The regressor (gradient boosting or random forest) is
+  picked by 5-fold MAE.
+- **Uncertainty:** σ = a + b·σ_ensemble. (a, b) is chosen as the narrowest band that keeps μ ± 2σ covering 95% of
+  out-of-fold rows.
+- **Domain check:** per-element training ranges plus kNN distance to the training set.
+
+## Results
+
+### Predictor (5-fold out-of-fold, 312 steels; elongation 303)
+
+| Target | MAE | μ ± 2σ coverage | mean ±2σ half-width |
+|---|---|---|---|
+| Yield strength | 98.8 MPa | 94.9% | ±129 MPa |
+| Tensile strength | 97.1 MPa | 94.9% | ±122 MPa |
+| Elongation | 2.55 % | 94.7% | ±3.4 % |
+
+Affine calibration gives bands 35–45% narrower than a single scalar multiplier, at the same coverage.
+
+### Agent (20 English queries × 2 backends, `eval/`)
+
+| | Muse Spark Open (Baseten) | Muse Spark 1.3 (Meta Model API) |
+|---|---|---|
+| Task success | **20 / 20** | **20 / 20** |
+| Clean answer (verifier stripped nothing) | 19 / 20 | 20 / 20 |
+| Mean tool calls | 1.4 | 1.25 |
+| Mean latency | **11.4 s** | 15.1 s |
+| Tokens, all 20 queries | 202k | 204k |
+
+![eval comparison](eval/compare.png)
+
+**What the queries cover**
+- 8 feasible, 4 infeasible (one stated in ksi), 4 trade-off, 2 out-of-domain, 2 multi-turn follow-ups.
+- The expected outcome of each query was labeled by running the tools directly. So this measures whether the
+  agent uses the tools correctly and answers honestly, not whether the alloys exist.
+
+**A first run scored 13/20 and 15/20.** Reading the failures led to three verifier fixes, each with a test:
+- numbers from earlier user turns are now allowed;
+- "1693,225" is checked as a list, not one number;
+- the prompt now says to quote tool numbers instead of approximating them.
+
+**Held-out rediscovery (`eval/rediscovery.py`, no LLM): 0 / 31.** We hid the strongest 10% of steels and
+retrained. Every held-out target then lies above the model's training range, and tree ensembles do not
+extrapolate. So `search` reports these targets as infeasible, with the binding constraint, rather than proposing
+the hidden alloys. This is the honest boundary of a 312-row model.
+
+## Limitations
+- **Small, narrow data:** 312 steels, mostly maraging / ultra-high-strength (YS ≈ 1000–2500 MPa). The model does
+  not extrapolate beyond that.
+- **Conservative screening is strict:** most "high strength and ≥10% elongation" goals are infeasible at μ−2σ.
+  The agent says so and offers the trade-off front instead.
+- **No experimental validation:** candidates are hypotheses to test, ranked by promise per unit uncertainty.
+- **No stress-strain curves:** total elongation alone cannot support a Hollomon fit, so we did not fake one.
+
+## Run it
 
 ```bash
 python -m venv .venv
-.venv/Scripts/pip install -e ".[dev]"   # Windows; use .venv/bin/pip elsewhere
-cp .env.example .env                    # then fill in MODEL_API_KEY
+.venv/Scripts/pip install -e ".[dev]"     # Windows; .venv/bin/pip elsewhere
+cp .env.example .env                       # BASETEN_API_KEY and/or MODEL_API_KEY
+python app.py                              # http://127.0.0.1:7860
 ```
 
-## License
+- **Backend:** switch in the UI, or set `LLM_BASE_URL` / `LLM_MODEL`. The default is
+  `meta-models/muse-spark-open-1026` on Baseten; the alternative is `muse-spark-1.3` on `https://api.meta.ai/v1`.
+- **Spec-sheet intake:** uses the Meta Model API. Try `demo/spec_landing_gear.pdf` or `demo/spec_table.png`.
+- **Replay mode:** `REPLAY=runs.jsonl python app.py` re-renders saved turns without calling any LLM.
+- **Tests:** `pytest`. 40 offline tests; the LLM is stubbed.
+- **Eval:** `python eval/run_eval.py --backend baseten|meta`, then `python eval/run_eval.py --plot`.
 
+## Data
+Figshare *Steel Strength Data* (MIT), originally from Citrine Informatics. It is downloaded and checksum-verified on
+first use, not committed. Details and citations: [DATA.md](DATA.md).
+
+## Built during the hackathon
+Everything here was written from an empty repository during the Meta Global AI Developer Hackathon. The first
+commit is `c4962d6` (2026-10-27 KST). No pre-existing code, models or data are included.
+
+| Date (KST) | Work |
+|---|---|
+| Oct 27 | Dataset license check and choice, project skeleton, Muse Spark tool-calling checks on both backends, design spec and plan |
+| Oct 28 | Predictor, tools, verifier, agent loop, multimodal intake, Gradio UI, eval harness, rediscovery benchmark |
+| Oct 29 | Full evaluation, verifier fixes driven by eval failures |
+
+Design notes: [docs/superpowers/specs](docs/superpowers/specs) and [docs/superpowers/plans](docs/superpowers/plans).
+
+## License
 MIT

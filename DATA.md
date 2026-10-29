@@ -15,4 +15,4 @@ The CSV is **not committed**. `alloy_agent.data.load()` downloads it on first us
 and verifies the checksum.
 
 Scope note: the data is mostly maraging / ultra-high-strength steels (yield 1006–2510 MPa).
-Anything outside the training ranges is flagged by `check_domain`, not hidden.
+Anything outside the training ranges is flagged as out of domain by `predict`/`search`/`pareto`, not hidden.
