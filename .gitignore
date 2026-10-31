@@ -9,3 +9,5 @@ runs.jsonl
 .superpowers/
 .claude/
 eval/runs_*.jsonl
+.venv-rec/
+demo/out/
