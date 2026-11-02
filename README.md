@@ -103,7 +103,7 @@ python app.py                              # http://127.0.0.1:7860
   `meta-models/muse-spark-open-1026` on Baseten; the alternative is `muse-spark-1.3` on `https://api.meta.ai/v1`.
 - **Spec-sheet intake:** uses the Meta Model API. Try `demo/spec_landing_gear.pdf` or `demo/spec_table.png`.
 - **Replay mode:** `REPLAY=runs.jsonl python app.py` re-renders saved turns without calling any LLM.
-- **Tests:** `pytest`. 49 offline tests; the LLM is stubbed.
+- **Tests:** `pytest`. 50 offline tests; the LLM is stubbed.
 - **Eval:** `python eval/run_eval.py --backend baseten|meta`, then `python eval/run_eval.py --plot`.
 
 ## Data
