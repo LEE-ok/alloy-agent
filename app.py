@@ -18,6 +18,9 @@ load_dotenv()
 PRED = OpenPredictor()
 REPLAY = os.environ.get("REPLAY")
 _replay = iter(json.loads(l) for l in open(REPLAY, encoding="utf-8")) if REPLAY else None
+# Public deployments set this so strangers cannot spend the LLM credits without bound (0 = no limit).
+LIVE_TURN_LIMIT = int(os.environ.get("LIVE_TURN_LIMIT", "0"))
+_live_turns = 0
 
 FOOTER = ("Predictions from a model trained on 312 open steels (MIT, Figshare Steel Strength Data). "
           "±2σ calibrated to ~95% out-of-fold coverage. Out-of-domain candidates are flagged, not hidden.")
@@ -32,6 +35,7 @@ def scatter_df(table: list[dict]) -> pd.DataFrame:
 
 
 def respond(text, history, session, backend):
+    global _live_turns
     if not text.strip():
         return gr.skip()
     session = session or Session()
@@ -39,7 +43,11 @@ def respond(text, history, session, backend):
         d = next(_replay, None)
         r = TurnResult(d["text"], d["table"], d["trace"], d["issues"], d["capped"]) if d else \
             TurnResult("Replay finished.", [], [], [], False)
+    elif LIVE_TURN_LIMIT and _live_turns >= LIVE_TURN_LIMIT:
+        r = TurnResult("This public demo reached its usage limit. Run it locally (see the README) or watch the "
+                       "demo video.", [], [], [], True)
     else:
+        _live_turns += 1
         try:
             chat = make_chat(*BACKENDS[backend])
         except RuntimeError as e:  # missing API key: say so in the chat instead of a raw Gradio error
