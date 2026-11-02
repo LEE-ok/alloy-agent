@@ -1,6 +1,6 @@
 import json
 
-from alloy_agent.agent import MAX_TOOL_CALLS, SESSION_TOKEN_CAP, Session, render_table, run_turn
+from alloy_agent.agent import MAX_REFINE, MAX_TOOL_CALLS, SESSION_TOKEN_CAP, Session, render_table, run_turn
 from alloy_agent.predictor import OpenPredictor
 
 P = OpenPredictor()
@@ -105,6 +105,12 @@ def test_still_empty_answer_falls_back_to_tool_summary():
     r = run_turn(Session(), "x", scripted(call("search", {"constraints": [{"target": "ys", "min": 3000}]}),
                                           say(""), say("")), P, None)
     assert "binding ys" in r.text
+
+
+def test_two_refine_searches_allowed_after_first_infeasible():
+    impossible = {"constraints": [{"target": "ys", "min": 3000}]}
+    r = run_turn(Session(), "x", scripted(*[call("search", impossible)] * 4, say("Done.")), P, None)
+    assert sum(t["tool"] == "search" for t in r.trace) == 1 + MAX_REFINE  # 4th search is blocked
 
 
 def test_llm_error_ends_turn_gracefully():

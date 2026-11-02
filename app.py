@@ -40,7 +40,12 @@ def respond(text, history, session, backend):
         r = TurnResult(d["text"], d["table"], d["trace"], d["issues"], d["capped"]) if d else \
             TurnResult("Replay finished.", [], [], [], False)
     else:
-        r = run_turn(session, text, make_chat(*BACKENDS[backend]), PRED)
+        try:
+            chat = make_chat(*BACKENDS[backend])
+        except RuntimeError as e:  # missing API key: say so in the chat instead of a raw Gradio error
+            r = TurnResult(f"Configuration error: {e}. Add the API key to .env and restart.", [], [], [], False)
+        else:
+            r = run_turn(session, text, chat, PRED)
     history = history + [{"role": "user", "content": text}, {"role": "assistant", "content": r.text}]
     return "", history, session, r.trace, scatter_df(r.table), render_table(r.table)
 

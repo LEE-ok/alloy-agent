@@ -118,7 +118,7 @@ def run_turn(session: Session, user_text: str, chat: Chat, pred: OpenPredictor,
             for tc in msg["tool_calls"]:
                 if calls >= MAX_TOOL_CALLS:  # every tool_call id still needs a reply
                     result = {"error": "tool budget reached; answer with what you have"}
-                elif tc["name"] == "search" and refines >= MAX_REFINE:
+                elif tc["name"] == "search" and refines > MAX_REFINE:  # first infeasible search + MAX_REFINE re-searches
                     calls += 1  # blocked calls still count, or a model that keeps retrying would loop forever
                     result = {"error": "refine limit reached; answer with what you have"}
                 else:
