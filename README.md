@@ -7,7 +7,8 @@ from a tool**: a code verifier checks the prose and strips anything it cannot tr
 are flagged, never hidden. When a goal is out of reach, the agent says which constraint binds and by how much,
 instead of inventing an alloy.
 
-**Demo video (2 min):** https://youtu.be/kuGOBx8772k
+**Demo video (2 min):** https://youtu.be/kuGOBx8772k · **Live demo:** https://lee-ok--alloy-agent-ui.us-east.modal.run
+(on Modal; the first request after idle takes ~30 s while the predictor trains; live LLM turns are capped)
 
 ![alloy-agent UI: follow-up asking for more elongation](docs/screens/followup-more-elongation.jpg)
 
